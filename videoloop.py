@@ -45,7 +45,7 @@ class videoloop(object):
 
             # Process frame through provided function
             if self.m_processingFunction is not None:
-                frame,_ = self.m_processingFunction(frame)
+                frame = self.m_processingFunction(frame)
 
             # show the final output
             cv2.imshow('Output', frame)

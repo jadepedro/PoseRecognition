@@ -12,11 +12,15 @@ def main():
     logging.info("Starting pose recognition CLI on mode " + str(mode) + " test " + str(test))
 
     # Start loop
-    pr = poserecognition(test)
     if mode == 'p':
+        pr = poserecognition(test)
         pr.loopRecognition()
     elif mode == 'a':
+        pr = poserecognition(test)
         pr.loopAiming()
+    elif mode == 's':
+        pr = poserecognition(test,enableSegmentation=True)
+        pr.loopSegmentation()
 
 
 def buildArgParser():
@@ -24,8 +28,8 @@ def buildArgParser():
     # Parser instance
     parser = argparse.ArgumentParser()
     # Add allowed arguments
-    parser.add_argument("-m", default='p', nargs='?', choices=['p', 'a'],
-                        help="Pose recognition (p) | Aiming (a)")
+    parser.add_argument("-m", default='p', nargs='?', choices=['p', 'a', 's'],
+                        help="Pose recognition (p) | Aiming (a) | Segmentation (s)")
     parser.add_argument("-t", action='store_true', help="Enable test mode: no command sent")
 
     args = parser.parse_args()
