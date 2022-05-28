@@ -34,10 +34,11 @@ class poserecognition(object):
     m_arduinoControl = None
 
     # previous mask for Segmentation
-    m_prev_mask = None
+    NUMBER_OF_MASK = 4
+    m_prev_mask_array = None
     # tick for segmentation
     m_segmentation_tick = 0
-    # previous trail
+    # previous trail (combined)
     m_previous_trail = None
 
     # debug mode
@@ -46,12 +47,12 @@ class poserecognition(object):
     m_show_3d = False
 
     # colors (BGR)
-    MASK_COLOR = (0, 112, 255)
+    MASK_COLOR = [(0, 112, 255), (50, 112, 205), (100, 112, 155), (150, 112, 105), (200, 112, 55)]
 
     #################################################
     # Common section                                #
     #################################################
-    def __init__(self, test=False, enableSegmentation=False) -> None:
+    def __init__(self, test=False, enableSegmentation=False, shape=(480, 640)) -> None:
         # test mode
         self.m_test = test
         # Pose estimator drawing tool
@@ -64,6 +65,16 @@ class poserecognition(object):
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5,
             enable_segmentation=enableSegmentation)
+
+        # previous trails
+        self.m_prev_mask_array = []
+        for i in range(self.NUMBER_OF_MASK):
+            self.m_prev_mask_array.append(np.zeros(shape, dtype=np.uint8))
+            #cv2.imshow('prev mask ' + str(i), self.m_prev_mask_array[i])
+            #cv2.waitKey(0)
+        # convert to numpy array
+        self.m_prev_mask_array = np.array(self.m_prev_mask_array)
+
 
     #################################################
     # Aiming section                                #
@@ -191,7 +202,7 @@ class poserecognition(object):
             mask = cv2.cvtColor(mask, cv2.COLOR_RGB2GRAY)
         return mask
 
-    def __getTrail(self, frame, mask, delay=2):
+    def __getTrail(self, frame, mask, delay=1):
         """
         Calculates the trail between current and previous masks
         Only for a given number of ticks
@@ -203,17 +214,38 @@ class poserecognition(object):
         trail = None
 
         if (self.m_segmentation_tick % delay) == 0:
-            # generate solid trail for previous mask
-            solid_mask = np.zeros(frame.shape, dtype=np.uint8)
-            solid_mask[:] = self.MASK_COLOR
-            #cv2.imshow('solid mask', solid_mask)
-            trail = cv2.bitwise_and(solid_mask, solid_mask, mask=self.m_prev_mask)
+            # generate solid trail for oldest mask. Use plain color
+            # remember: trails are colorized images, masks are grey scale
+            oldest_solid_trail = np.zeros(frame.shape, dtype=np.uint8)
+            oldest_solid_trail[:] = self.MASK_COLOR[self.NUMBER_OF_MASK-1]
 
-            # update previous mask and trail
-            self.m_prev_mask = mask
-            self.m_previous_trail = trail
+            # background: the background is composed by adding the different trails on each iterantion
+            # for the first iteration, background is just the oldest trail
+            oldest_mask = self.m_prev_mask_array[self.NUMBER_OF_MASK -1]
+            background = cv2.bitwise_and(oldest_solid_trail, oldest_solid_trail, mask=oldest_mask)
+
+            # for the newer trails, iterate by composing the trail with the background
+            for i in reversed(range(self.NUMBER_OF_MASK - 1)):
+                # generate next colorized trail
+                current_solid_trail = np.zeros(frame.shape, dtype=np.uint8)
+                current_solid_trail[:] = self.MASK_COLOR[i]
+                #cv2.imshow('background ' + str(i), background)
+                #cv2.imshow('current_solid_trail ' + str(i), current_solid_trail)
+                #cv2.imshow('current_mask ' + str(i), self.m_prev_mask_array[i])
+                #cv2.waitKey(0)
+
+                # compose the trail with the background using the current mask and set it as current background
+                background = self.__composeForeAndBackgroud(current_solid_trail, background, mask= self.m_prev_mask_array[i])
+
+            # update previous mask
+            self.m_prev_mask_array[1:self.NUMBER_OF_MASK]= self.m_prev_mask_array[0:self.NUMBER_OF_MASK-1]
+            self.m_prev_mask_array[0] = mask
+            # save composited trail as previous trail
+            self.m_previous_trail = background
             applied = True
         self.m_segmentation_tick += 1
+        #cv2.imshow('m_previous_trail ', self.m_previous_trail)
+        #cv2.waitKey(0)
 
         return applied, self.m_previous_trail
 
@@ -253,19 +285,16 @@ class poserecognition(object):
             # extract mask
             mask = self.__getMask(frame, smoothedMask=True)
             # show mask
-            cv2.imshow('mask', mask)
+            #cv2.imshow('mask', mask)
 
             # show masked image
             # calculate the matching area
             masked = cv2.bitwise_and(frame, frame, mask=mask)
             #cv2.imshow('masked', masked)
 
-            # if previous mask is None, initialize to black
-            if self.m_prev_mask is None:
-                self.m_prev_mask = mask
-                # self.m_prev_mask = np.zeros(frame.shape, dtype=np.uint8)
-            # calculate trail
+            # calculate trailed image
             applied, trail = self.__getTrail(frame, mask)
+
             # compose frame and trail
             trailed = self.__composeForeAndBackgroud(frame, trail, mask)
 
@@ -275,7 +304,7 @@ class poserecognition(object):
             # compose trailed image with background
             final_composition = self.__composeForeAndBackgroud(trailed, frame, overall_mask)
         except ValueError:
-            pass
+            print(str(ValueError))
 
 
         # show trailed image
