@@ -17,9 +17,10 @@ def main():
         pr.loopRecognition()
     elif mode == 'a':
         pr = poserecognition(test)
-        pr.loopAiming()
+        pr.loopAiming(test)
     elif mode == 's':
-        pr = poserecognition(test,enableSegmentation=True)
+        pr = poserecognition(test,enableSegmentation=True
+                             )
         pr.loopSegmentation()
 
 

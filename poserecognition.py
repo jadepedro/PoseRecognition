@@ -47,7 +47,7 @@ class poserecognition(object):
     m_show_3d = False
 
     # colors (BGR)
-    MASK_COLOR = [(0, 112, 255), (50, 112, 205), (100, 112, 155), (150, 112, 105), (200, 112, 55)]
+    MASK_COLOR = [(0, 112, 255), (50, 132, 205), (100, 152, 155), (150, 172, 105), (200, 192, 55)]
 
     #################################################
     # Common section                                #
@@ -75,10 +75,10 @@ class poserecognition(object):
         # convert to numpy array
         self.m_prev_mask_array = np.array(self.m_prev_mask_array)
 
-
     #################################################
     # Aiming section                                #
     #################################################
+
     def __aiming(self, frame):
         """
         Performs aiming of a laser connected to an arduino
@@ -146,15 +146,15 @@ class poserecognition(object):
 
         return h_angle, v_angle
 
-    def loopAiming(self):
+    def loopAiming(self, test):
         """
-        Runs the main vido processing loop for aiming
+        Runs the main video processing loop for aiming
         :return:
         """
         logging.info("Entering aiming")
 
         # instantiate arduino controller
-        self.m_test = True  # TODO: remove
+        self.m_test = test  
         self.m_arduinoControl = arduinoControl(self.m_test)
 
         try:
@@ -169,6 +169,7 @@ class poserecognition(object):
     #################################################
     # Segmentation section                          #
     #################################################
+
     def __getMask(self, frame, smoothedMask=True):
         """
         Calculates the segmentation for a given frame
