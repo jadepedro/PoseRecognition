@@ -3,11 +3,13 @@ import cv2
 import matplotlib.pyplot as plt
 import mediapipe as mp
 import numpy as np
+import time
 
 # use the custom drawing utils for plotting the landmarks in 3D
 from mediapipedrawing_utils import plot_landmarks
 from videoloop import videoloop
 from arduinoControl import arduinoControl
+from GraphicsHelper import GraphicsHelper
 
 
 class poserecognition(object):
@@ -53,6 +55,8 @@ class poserecognition(object):
     # Common section                                #
     #################################################
     def __init__(self, test=False, enableSegmentation=False, shape=(480, 640)) -> None:
+        # graphic debugging tool
+        self.graphicHelper = None
         # test mode
         self.m_test = test
         # Pose estimator drawing tool
@@ -102,6 +106,11 @@ class poserecognition(object):
 
         # deduct angle
         h_angle, v_angle = self.__deductAngle(results)
+
+        # record new angle on graphic helper
+        self.graphicHelper.add_y_and_shift(h_angle)
+        self.graphicHelper.set_text(f"angle: {h_angle}")
+        self.graphicHelper.update()
 
         # print angle on frame
         cv2.putText(frame, text=str(h_angle), org=(20, 80), fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=3,
@@ -156,6 +165,9 @@ class poserecognition(object):
         # instantiate arduino controller
         self.m_test = test  
         self.m_arduinoControl = arduinoControl(self.m_test)
+
+        # instantiate graphic helper to record angle values
+        self.graphicHelper = GraphicsHelper(0, 20, -100, 100)
 
         try:
             # Create a video looper, that uses the aiming function as the frame processing function
@@ -345,7 +357,7 @@ class poserecognition(object):
         self.m_fig = self.m_axes.figure
         self.m_canvas = self.m_fig.canvas
         self.m_axes.figure.canvas.mpl_connect('close_event', self.__on_close)
-        self.m_canvas.set_window_title('3D estimation')
+        #self.m_canvas.set_window_title('3D estimation')
 
         # view default values
         angle = 30

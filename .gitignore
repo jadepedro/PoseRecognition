@@ -17,3 +17,5 @@ __pycache__/poserecognition.cpython-312.pyc
 .idea/vcs.xml
 .idea/inspectionProfiles/profiles_settings.xml
 dlib-18.17.100-cp35-none-win_amd64.whl
+__pycache__/BlitManager.cpython-312.pyc
+__pycache__/GraphicsHelper.cpython-312.pyc
