@@ -401,7 +401,7 @@ class poserecognition(object):
 
         # plot 3D landmarks
         if self.m_show_3d:
-            plot_landmarks(
+            mediapipedrawing_utils.plot_landmarks(
                 self.m_axes,
                 results.pose_world_landmarks,
                 self.m_mp_pose.POSE_CONNECTIONS,
