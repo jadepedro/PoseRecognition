@@ -17,7 +17,6 @@ class videoloop(object):
         # Processing function inside loop
         self.m_processingFunction = processingFunction
 
-
     def __getFrame(self, w=640, h=480):
         """
         Retrieves a frame from the configured video device or source
@@ -52,7 +51,6 @@ class videoloop(object):
 
             if self.commonKeyboardHandle():
                 break
-
 
     def commonKeyboardHandle(self):
         ret = False

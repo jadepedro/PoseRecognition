@@ -6,10 +6,11 @@ import numpy as np
 import time
 
 # use the custom drawing utils for plotting the landmarks in 3D
-from mediapipedrawing_utils import plot_landmarks
-from videoloop import videoloop
+from Graphics import mediapipedrawing_utils
+
 from arduinoControl import arduinoControl
-from GraphicsHelper import GraphicsHelper
+from Graphics import GraphicsHelper
+from videoloop import videoloop
 
 
 class poserecognition(object):

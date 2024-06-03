@@ -1,8 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-import BlitManager as bm
-
+from Graphics import BlitManager as bm
 
 class GraphicsHelper:
     """
