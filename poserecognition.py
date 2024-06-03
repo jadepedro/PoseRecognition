@@ -7,9 +7,8 @@ import time
 
 # use the custom drawing utils for plotting the landmarks in 3D
 from Graphics import mediapipedrawing_utils
-
 from arduinoControl import arduinoControl
-from Graphics import GraphicsHelper
+from Graphics.GraphicsHelper import GraphicsHelper
 from videoloop import videoloop
 
 
