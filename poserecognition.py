@@ -5,6 +5,10 @@ import mediapipe as mp
 import numpy as np
 import time
 
+# needed for face landmarks
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
+
 # use the custom drawing utils for plotting the landmarks in 3D
 from Graphics import mediapipedrawing_utils
 from arduinoControl import arduinoControl
@@ -54,7 +58,7 @@ class poserecognition(object):
     #################################################
     # Common section                                #
     #################################################
-    def __init__(self, test=False, enableSegmentation=False, shape=(480, 640)) -> None:
+    def __init__(self, test=False, enableSegmentation=False, shape=(480, 640), detector=None) -> None:
         # graphic debugging tool
         self.graphicHelper = None
         # test mode
@@ -63,12 +67,24 @@ class poserecognition(object):
         self.m_mp_drawing = mp.solutions.drawing_utils
         # Pose drawing styles
         self.m_mp_drawing_styles = mp.solutions.drawing_styles
-        # Pose recognizer
-        self.m_mp_pose = mp.solutions.pose
-        self.m_pose = self.m_mp_pose.Pose(
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5,
-            enable_segmentation=enableSegmentation)
+        # Pose recognizer. This is used for the full body pose estimation
+        self.m_mp_pose =None
+        self.m_pose = None
+        
+        # Enabling segmentation
+        self.m_enableSegmentation = enableSegmentation
+
+        # Face landmarks recognizer. This is used for the face landmarks estimation
+        # See https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker/python?hl=es-419#video
+        #base_options = python.BaseOptions(model_asset_path='face_landmarker.task')
+        #self.m_base_options = python.BaseOptions(model_asset_path='face_landmarker.task')
+        #self.m_options = vision.FaceLandmarkerOptions(base_options=base_options,
+        #                                    output_face_blendshapes=False,
+        #                                    output_facial_transformation_matrixes=False,
+        #                                    running_mode=mp.tasks.vision.RunningMode.VIDEO,
+        #                                    num_faces=1)
+        #self.m_detector = vision.FaceLandmarker.create_from_options(self.m_options)
+        self.m_detector = detector
 
         # previous trails
         self.m_prev_mask_array = []
@@ -79,10 +95,121 @@ class poserecognition(object):
         # convert to numpy array
         self.m_prev_mask_array = np.array(self.m_prev_mask_array)
 
+    def initBodyPose(self):
+        """
+        Initializes body pose estimator. This has been separated to avoid conflict with the face detection.
+        :return:
+        """
+        self.m_mp_pose = mp.solutions.pose
+        self.m_pose = self.m_mp_pose.Pose(
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5,
+            enable_segmentation=self.m_enableSegmentation)
+        
     #################################################
-    # Aiming section                                #
+    # Aiming section based on face landmarks        #
     #################################################
+    def __aimingFace(self, frame):
+        """
+        Performs aiming of a laser connected to an arduino
+        :param frame: frame on which perform pose recognition and used as data for aiming
+        :return: processed frame and results
+        """
+        # convert the frame to RGB format
+        RGBframe = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
+        # process the RGB frame to get the result
+        # Convert the frame received from OpenCV to a MediaPipe’s Image object.
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=RGBframe)
+        face_landmarker_result = self.m_detector.detect_for_video(mp_image,timestamp_ms=0)
+
+        # draw detected 2D skeleton on the frame
+        annotated_image = mediapipedrawing_utils.draw_landmarks_on_image(mp_image.numpy_view(), face_landmarker_result)
+
+        # deduct angle
+        h_angle, v_angle = (0,0)
+        #h_angle, v_angle = self.__deductAngleFace(face_landmarker_result)
+
+        # record new angle on graphic helper
+        self.graphicHelper.add_y_and_shift(h_angle)
+        self.graphicHelper.set_text(f"angle: {h_angle}")
+        self.graphicHelper.update()
+
+        # print angle on frame
+        cv2.putText(annotated_image, text=str(h_angle), org=(20, 80), fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=3,
+                    color=(0, 255, 0), thickness=3)
+
+        # send angle to arduino
+        self.m_arduinoControl.sendServoAngle(h_angle, v_angle)
+
+        return annotated_image
+
+    def __deductAngleFace(self, results):
+        """
+        Deduct angle for both H and V axis from landmarks. Review https://colab.research.google.com/drive/1uCuA6We9T5r0WljspEHWPHXCT_2bMKUy#scrollTo=BAivyQ_xOtFp
+        :param results: results obtained during pose estimation
+        :return: estimated H and V angle
+        """
+        h_angle = 90
+        v_angle = 90
+        if not results.pose_landmarks is None:
+            # H angle
+            # estimate radius: use landmarks for nose and ears
+            nose = results.pose_landmarks.landmark[self.m_mp_pose.PoseLandmark.NOSE]
+            left_ear = results.pose_landmarks.landmark[self.m_mp_pose.PoseLandmark.LEFT_EAR]
+            right_ear = results.pose_landmarks.landmark[self.m_mp_pose.PoseLandmark.RIGHT_EAR]
+            # take as radius the difference between left and right x coordinate halfed
+            radius = float((left_ear.x - right_ear.x) / 2)
+            # take as proyection point the distance between nose to center of ears
+            center = right_ear.x + radius
+            proy = float(nose.x - center)
+            # calculate ratio between proyection and radius
+            ratio = proy / radius
+            if ratio > 1:
+                ratio = 1
+            elif ratio < -1:
+                ratio = -1
+            # calculate estimated angle (in radians)
+            h_angle = np.arcsin([ratio])[0]
+            # convert to degrees
+            h_angle = int(h_angle * 180 / np.pi)
+
+            logging.debug("ratio: " + str(ratio) + " proyection: " + str(proy))
+
+        return h_angle, v_angle
+
+    def loopAimingFace(self, test, detector):
+        """
+        Runs the main video processing loop for aiming based on face landmarks
+        :return:
+        """
+        logging.info("Entering aiming face")
+
+        # instantiate arduino controller
+        self.m_test = test  
+        self.m_arduinoControl = arduinoControl(self.m_test)
+
+        # instantiate face landmarks recognizer
+        self.m_detector = detector
+
+        # initialize body pose estimator
+        self.initBodyPose()
+
+        # instantiate graphic helper to record angle values
+        self.graphicHelper = GraphicsHelper(0, 20, -100, 100)
+
+        try:
+            # Create a video looper, that uses the aiming function as the frame processing function
+            vl = videoloop(self.__aimingFace)
+            # Invoke the main oop
+            vl.loopVideoProcess()
+        except ValueError:
+            logging.error("Error" + str(ValueError))
+        logging.info("Exiting aiming face")
+
+    #################################################
+    # Aiming section based on body pose             #
+    #################################################
     def __aiming(self, frame):
         """
         Performs aiming of a laser connected to an arduino
@@ -165,6 +292,9 @@ class poserecognition(object):
         # instantiate arduino controller
         self.m_test = test  
         self.m_arduinoControl = arduinoControl(self.m_test)
+
+        # instantiate pose recognizer for full boyd pose estimation
+        self.initBodyPose()
 
         # instantiate graphic helper to record angle values
         self.graphicHelper = GraphicsHelper(0, 20, -100, 100)
@@ -334,6 +464,9 @@ class poserecognition(object):
         """
         logging.info("Entering segmentation")
 
+        # instantiate pose recognizer for full boyd pose estimation
+        self.initBodyPose()
+
         try:
             # Create a video looper, that uses the aiming function as the frame processing function
             vl = videoloop(self.__poseSegmentation)
@@ -419,6 +552,10 @@ class poserecognition(object):
         :return:
         """
         logging.debug("Entering pose recognition")
+
+        # instantiate pose recognizer for full boyd pose estimation
+        self.initBodyPose()
+
         try:
             # Create a video looper, that uses the pose recognition function as the frame processing function
             vl = videoloop(self.__poseRecognition)

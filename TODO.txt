@@ -1,2 +1,3 @@
 Explore https://rerun.io/ for visualization
-So far, used generic pose model. Explore other mediapipe versions and models (i.e face recognition) https://mediapipe-studio.webapps.google.com/home
+So far, used generic pose model. 
+Explore other mediapipe versions and models (i.e face recognition) https://mediapipe-studio.webapps.google.com/home (in progress)
