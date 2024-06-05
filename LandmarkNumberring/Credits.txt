@@ -1,0 +1,3 @@
+Landmark numbering from: 
+https://medium.com/@hotakoma/mediapipe-landmark-face-hand-pose-sequence-number-list-view-778364d6c414
+https://github.com/HotaruK/mediapipe_demo?source=post_page-----778364d6c414--------------------------------

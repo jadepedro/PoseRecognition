@@ -26,14 +26,8 @@ def main():
         pr = poserecognition(test)
         pr.loopAiming(test)
     elif mode == 'f':
-        base_options = python.BaseOptions(model_asset_path="face_landmarker.task")
-        options = vision.FaceLandmarkerOptions(base_options=base_options,
-                                            output_face_blendshapes=True,
-                                            output_facial_transformation_matrixes=True,
-                                            num_faces=1)
-        detector = vision.FaceLandmarker.create_from_options(options)
         pr = poserecognition(test)
-        pr.loopAimingFace(test, detector)
+        pr.loopAimingFace(test)
     elif mode == 's':
         pr = poserecognition(test,enableSegmentation=True)
         pr.loopSegmentation()

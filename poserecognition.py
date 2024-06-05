@@ -115,13 +115,14 @@ class poserecognition(object):
         :param frame: frame on which perform pose recognition and used as data for aiming
         :return: processed frame and results
         """
-        # convert the frame to RGB format
-        RGBframe = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # convert the frame to RGB format is not needed as it will be handeld by the MediaPipe operation
+        RGBframe = frame #cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         # process the RGB frame to get the result
         # Convert the frame received from OpenCV to a MediaPipe’s Image object.
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=RGBframe)
-        face_landmarker_result = self.m_detector.detect_for_video(mp_image,timestamp_ms=0)
+        face_landmarker_result = self.m_detector.detect(mp_image)
+        #face_landmarker_result = self.m_detector.detect_for_video(mp_image,timestamp_ms=0)
 
         # draw detected 2D skeleton on the frame
         annotated_image = mediapipedrawing_utils.draw_landmarks_on_image(mp_image.numpy_view(), face_landmarker_result)
@@ -152,12 +153,12 @@ class poserecognition(object):
         """
         h_angle = 90
         v_angle = 90
-        if not results.pose_landmarks is None:
+        if not results.face_landmarks is None:
             # H angle
             # estimate radius: use landmarks for nose and ears
-            nose = results.pose_landmarks.landmark[self.m_mp_pose.PoseLandmark.NOSE]
-            left_ear = results.pose_landmarks.landmark[self.m_mp_pose.PoseLandmark.LEFT_EAR]
-            right_ear = results.pose_landmarks.landmark[self.m_mp_pose.PoseLandmark.RIGHT_EAR]
+            nose = results.face_landmarks.landmark[self.m_mp_pose.face_landmarks.NOSE]
+            left_ear = results.face_landmarks.landmark[self.m_mp_pose.PoseLandmark.LEFT_EAR]
+            right_ear = results.face_landmarks.landmark[self.m_mp_pose.PoseLandmark.RIGHT_EAR]
             # take as radius the difference between left and right x coordinate halfed
             radius = float((left_ear.x - right_ear.x) / 2)
             # take as proyection point the distance between nose to center of ears
@@ -178,22 +179,26 @@ class poserecognition(object):
 
         return h_angle, v_angle
 
-    def loopAimingFace(self, test, detector):
+
+    
+    def loopAimingFace(self, test):
         """
         Runs the main video processing loop for aiming based on face landmarks
         :return:
         """
-        logging.info("Entering aiming face")
+        logging.info("Entering aiming face base on face landmarks")
 
         # instantiate arduino controller
         self.m_test = test  
         self.m_arduinoControl = arduinoControl(self.m_test)
 
         # instantiate face landmarks recognizer
-        self.m_detector = detector
-
-        # initialize body pose estimator
-        self.initBodyPose()
+        base_options = python.BaseOptions(model_asset_path="face_landmarker.task")
+        options = vision.FaceLandmarkerOptions(base_options=base_options,
+                                            output_face_blendshapes=False,
+                                            output_facial_transformation_matrixes=False,
+                                            num_faces=1)
+        self.m_detector = vision.FaceLandmarker.create_from_options(options)
 
         # instantiate graphic helper to record angle values
         self.graphicHelper = GraphicsHelper(0, 20, -100, 100)

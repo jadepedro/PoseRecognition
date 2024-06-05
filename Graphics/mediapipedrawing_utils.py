@@ -22,10 +22,13 @@ import cv2
 import dataclasses
 import matplotlib.pyplot as plt
 import numpy as np
+import mediapipe as mp
+import time
 
 from mediapipe.framework.formats import detection_pb2
 from mediapipe.framework.formats import location_data_pb2
 from mediapipe.framework.formats import landmark_pb2
+from mediapipe.tasks.python.components.containers import NormalizedLandmark
 
 
 #################################################
@@ -350,8 +353,15 @@ from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
-def draw_landmarks_on_image(rgb_image, detection_result):
+def get_landmark_coords(landmarks: list[NormalizedLandmark], width: int, height: int) -> np.ndarray:
+    """Extract normalized landmark coordinates to array of pixel coordinates."""
+    """Code from:https://www.samproell.io/posts/ai/mediapipe-update-2023/"""
+    xyz = [(lm.x, lm.y, lm.z) for lm in landmarks]
+    return np.multiply(xyz, [width, height, width]).astype(int)
+
+def draw_landmarks_on_image(rgb_image, detection_result, draw_numbers=True, pause_drawing=300):
   face_landmarks_list = detection_result.face_landmarks
   annotated_image = np.copy(rgb_image)
 
@@ -386,6 +396,15 @@ def draw_landmarks_on_image(rgb_image, detection_result):
           landmark_drawing_spec=None,
           connection_drawing_spec=mp.solutions.drawing_styles
           .get_default_face_mesh_iris_connections_style())
+    
+    if draw_numbers:
+      height, width, _ = annotated_image.shape
+      for i, landmark in enumerate(face_landmarks):
+                  x, y = int(landmark.x * width), int(landmark.y * height)
+                  cv2.putText(annotated_image, str(i), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 2)
+                  if pause_drawing > 0:
+                      cv2.waitKey(pause_drawing )
+                      cv2.imshow('annotated_image', annotated_image)
 
   return annotated_image
 
