@@ -14,6 +14,7 @@ from Graphics import mediapipedrawing_utils
 from arduinoControl import arduinoControl
 from Graphics.GraphicsHelper import GraphicsHelper
 from videoloop import videoloop
+import LandmarkNumberring.LandMarkNumbering as lmn
 
 
 class poserecognition(object):
@@ -38,6 +39,8 @@ class poserecognition(object):
 
     # aiming
     m_arduinoControl = None
+    m_h_angle = 0
+    m_v_angle = 0
 
     # previous mask for Segmentation
     NUMBER_OF_MASK = 4
@@ -125,23 +128,22 @@ class poserecognition(object):
         #face_landmarker_result = self.m_detector.detect_for_video(mp_image,timestamp_ms=0)
 
         # draw detected 2D skeleton on the frame
-        annotated_image = mediapipedrawing_utils.draw_landmarks_on_image(mp_image.numpy_view(), face_landmarker_result)
+        annotated_image = mediapipedrawing_utils.draw_landmarks_on_image(mp_image.numpy_view(), face_landmarker_result, draw_numbers=False)
 
         # deduct angle
-        h_angle, v_angle = (0,0)
-        #h_angle, v_angle = self.__deductAngleFace(face_landmarker_result)
+        self.m_h_angle, self.m_v_angle = self.__deductAngleFace(face_landmarker_result)
 
         # record new angle on graphic helper
-        self.graphicHelper.add_y_and_shift(h_angle)
-        self.graphicHelper.set_text(f"angle: {h_angle}")
+        self.graphicHelper.add_y_and_shift(self.m_h_angle)
+        self.graphicHelper.set_text(f"angle: {self.m_h_angle}")
         self.graphicHelper.update()
 
         # print angle on frame
-        cv2.putText(annotated_image, text=str(h_angle), org=(20, 80), fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=3,
+        cv2.putText(annotated_image, text=str(self.m_h_angle), org=(20, 80), fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=3,
                     color=(0, 255, 0), thickness=3)
 
         # send angle to arduino
-        self.m_arduinoControl.sendServoAngle(h_angle, v_angle)
+        self.m_arduinoControl.sendServoAngle(self.m_h_angle, self.m_v_angle)
 
         return annotated_image
 
@@ -151,14 +153,15 @@ class poserecognition(object):
         :param results: results obtained during pose estimation
         :return: estimated H and V angle
         """
-        h_angle = 90
-        v_angle = 90
-        if not results.face_landmarks is None:
+        h_angle = self.m_h_angle
+        v_angle = self.m_v_angle
+        # note that only one face is detected
+        if not results.face_landmarks is None and len(results.face_landmarks) > 0:
             # H angle
             # estimate radius: use landmarks for nose and ears
-            nose = results.face_landmarks.landmark[self.m_mp_pose.face_landmarks.NOSE]
-            left_ear = results.face_landmarks.landmark[self.m_mp_pose.PoseLandmark.LEFT_EAR]
-            right_ear = results.face_landmarks.landmark[self.m_mp_pose.PoseLandmark.RIGHT_EAR]
+            nose = results.face_landmarks[0][lmn.FACE_NOSE]
+            left_ear = results.face_landmarks[0][lmn.FACE_LEFT]
+            right_ear = results.face_landmarks[0][lmn.FACE_RIGHT]
             # take as radius the difference between left and right x coordinate halfed
             radius = float((left_ear.x - right_ear.x) / 2)
             # take as proyection point the distance between nose to center of ears

@@ -2,6 +2,7 @@ from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
 import numpy as np
 import matplotlib.pyplot as plt
+import LandMarkNumbering as lmn
 
 
 def draw_landmarks_on_image(rgb_image, detection_result, draw_numbers=True, pause_drawing=800, clear_image=True, landmarklist=[]):
@@ -33,45 +34,45 @@ def draw_landmarks_on_image(rgb_image, detection_result, draw_numbers=True, paus
     ])
 
     solutions.drawing_utils.draw_landmarks(
-      image=annotated_image,
-      landmark_list=face_landmarks_proto,
-      connections=mp.solutions.face_mesh.FACEMESH_TESSELATION,
-      landmark_drawing_spec=None,
-      connection_drawing_spec=mp.solutions.drawing_styles.get_default_face_mesh_tesselation_style()
-    )
+        image=annotated_image,
+        landmark_list=face_landmarks_proto,
+        connections=mp.solutions.face_mesh.FACEMESH_TESSELATION,
+        landmark_drawing_spec=None,
+        connection_drawing_spec=mp.solutions.drawing_styles
+        .get_default_face_mesh_tesselation_style())
     solutions.drawing_utils.draw_landmarks(
-      image=annotated_image,
-      landmark_list=face_landmarks_proto,
-      connections=mp.solutions.face_mesh.FACEMESH_CONTOURS,
-      landmark_drawing_spec=None,
-      connection_drawing_spec=mp.solutions.drawing_styles.get_default_face_mesh_contours_style()
-    )
+        image=annotated_image,
+        landmark_list=face_landmarks_proto,
+        connections=mp.solutions.face_mesh.FACEMESH_CONTOURS,
+        landmark_drawing_spec=None,
+        connection_drawing_spec=mp.solutions.drawing_styles
+        .get_default_face_mesh_contours_style())
     solutions.drawing_utils.draw_landmarks(
-      image=annotated_image,
-      landmark_list=face_landmarks_proto,
-      connections=mp.solutions.face_mesh.FACEMESH_IRISES,
-      landmark_drawing_spec=None,
-      connection_drawing_spec=mp.solutions.drawing_styles.get_default_face_mesh_iris_connections_style()
-    )
-
+        image=annotated_image,
+        landmark_list=face_landmarks_proto,
+        connections=mp.solutions.face_mesh.FACEMESH_IRISES,
+          landmark_drawing_spec=None,
+          connection_drawing_spec=mp.solutions.drawing_styles
+          .get_default_face_mesh_iris_connections_style())
+    
     if draw_numbers:
-      height, width, _ = annotated_image.shape
-      annotated_image = cv2.cvtColor(annotated_image, cv2.COLOR_BGR2RGB)
-      for i, landmark in enumerate(face_landmarks):
-        # if a landmark list has been provided, only draw landmarks in the list
-        if landmarklist:
-          if i not in landmarklist:
-            continue
+        height, width, _ = annotated_image.shape
+        annotated_image = cv2.cvtColor(annotated_image, cv2.COLOR_BGR2RGB)
+        for i, landmark in enumerate(face_landmarks):
+                    # if a landark list has been provided, only draw landmarks in the list
+                    if landmarklist:
+                        if i not in landmarklist:
+                            continue
 
-        copy_image = annotated_image.copy()
-        x, y = int(landmark.x * width), int(landmark.y * height)
-        cv2.circle(copy_image, (x, y), radius=2, color=(255, 255, 0), thickness=2)
-        cv2.putText(copy_image, str(i), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-        if pause_drawing > 0 and not landmarklist:
-          cv2.waitKey(pause_drawing)
-        cv2.imshow('Numbered image', copy_image)
-        if not clear_image:
-          annotated_image = copy_image
+                    copy_image = annotated_image.copy()
+                    x, y = int(landmark.x * width), int(landmark.y * height)
+                    cv2.circle(copy_image, (x,y), radius=2, color=(255, 255, 0) , thickness=2)
+                    cv2.putText(copy_image, str(i), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                    if pause_drawing > 0 and not landmarklist:
+                        cv2.waitKey(pause_drawing)
+                    cv2.imshow('Numbered image', copy_image)
+                    if not clear_image:
+                        annotated_image = copy_image
 
   return annotated_image
 
@@ -120,8 +121,18 @@ image = mp.Image.create_from_file("business-person.png")
 detection_result = detector.detect(image)
 
 # STEP 5: Process the detection result. In this case, visualize it.
-annotated_image = draw_landmarks_on_image(image.numpy_view(), detection_result)
+#annotated_image = draw_landmarks_on_image(image.numpy_view(), detection_result)
+#annotated_image = draw_landmarks_on_image(image.numpy_view(), detection_result, draw_numbers=True, pause_drawing=800, clear_image=True, landmarklist=[])
+annotated_image = draw_landmarks_on_image(image.numpy_view(), detection_result, draw_numbers=True, pause_drawing=-1, clear_image=False, landmarklist=[
+    lmn.FACE_NOSE,
+    lmn.FACE_TOPCENTER,
+    lmn.FACE_BOTTOMCENTER,
+    lmn.FACE_EYECENTER,
+    lmn.FACE_LEFT,
+    lmn.FACE_RIGHT
+])
 #cv2.imshow('output',cv2.cvtColor(annotated_image, cv2.COLOR_RGB2BGR))
+cv2.waitKey(0)
 plot_face_blendshapes_bar_graph(detection_result.face_blendshapes[0])
 #print(detection_result.facial_transformation_matrixes)
 cv2.waitKey(0)
