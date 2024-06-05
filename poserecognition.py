@@ -63,7 +63,8 @@ class poserecognition(object):
     #################################################
     def __init__(self, test=False, enableSegmentation=False, shape=(480, 640), detector=None) -> None:
         # graphic debugging tool
-        self.graphicHelper = None
+        self.hgraphicHelper = None
+        self.vgraphicHelper = None
         # test mode
         self.m_test = test
         # Pose estimator drawing tool
@@ -134,13 +135,18 @@ class poserecognition(object):
         self.m_h_angle, self.m_v_angle = self.__deductAngleFace(face_landmarker_result)
 
         # record new angle on graphic helper
-        self.graphicHelper.add_y_and_shift(self.m_h_angle)
-        self.graphicHelper.set_text(f"angle: {self.m_h_angle}")
-        self.graphicHelper.update()
+        self.hgraphicHelper.add_y_and_shift(self.m_h_angle)
+        self.hgraphicHelper.set_text(f"H angle: {self.m_h_angle}")
+        self.hgraphicHelper.update()
+        self.vgraphicHelper.add_y_and_shift(self.m_v_angle)
+        self.vgraphicHelper.set_text(f"V angle: {self.m_v_angle}")
+        self.vgraphicHelper.update()
 
         # print angle on frame
-        cv2.putText(annotated_image, text=str(self.m_h_angle), org=(20, 80), fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=3,
-                    color=(0, 255, 0), thickness=3)
+        cv2.putText(annotated_image, text="H:" + str(self.m_h_angle), org=(20, 80), fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=2,
+                    color=(0, 255, 0), thickness=2)
+        cv2.putText(annotated_image, text="V:" + str(self.m_v_angle), org=(20, 140), fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=2,
+                    color=(0, 255, 0), thickness=2)
 
         # send angle to arduino
         self.m_arduinoControl.sendServoAngle(self.m_h_angle, self.m_v_angle)
@@ -163,27 +169,51 @@ class poserecognition(object):
             left_ear = results.face_landmarks[0][lmn.FACE_LEFT]
             right_ear = results.face_landmarks[0][lmn.FACE_RIGHT]
             # take as radius the difference between left and right x coordinate halfed
-            radius = float((left_ear.x - right_ear.x) / 2)
+            hradius = float((left_ear.x - right_ear.x) / 2)
             # take as proyection point the distance between nose to center of ears
-            center = right_ear.x + radius
-            proy = float(nose.x - center)
+            hcenter = right_ear.x + hradius
+            hproy = float(nose.x - hcenter)
             # calculate ratio between proyection and radius
-            ratio = proy / radius
-            if ratio > 1:
-                ratio = 1
-            elif ratio < -1:
-                ratio = -1
+            hratio = hproy / hradius
+            if hratio > 1:
+                hratio = 1
+            elif hratio < -1:
+                hratio = -1
             # calculate estimated angle (in radians)
-            h_angle = np.arcsin([ratio])[0]
+            h_angle = np.arcsin([hratio])[0]
             # convert to degrees
             h_angle = int(h_angle * 180 / np.pi)
+            logging.debug("h ratio: " + str(hratio) + " h proyection: " + str(hproy))
 
-            logging.debug("ratio: " + str(ratio) + " proyection: " + str(proy))
+            # V angle
+            # estimate radius: use landmarks for center eyes top and bottom
+            top_center = results.face_landmarks[0][lmn.FACE_TOPCENTER]
+            bottom_center = results.face_landmarks[0][lmn.FACE_BOTTOMCENTER]
+            # take as radius the difference between top and bottom y coordinate halfed
+            vradius = float((top_center.y - bottom_center.y) / 2)
+            # take as proyection point the distance between center eyes top and bottom
+            vcenter = bottom_center.y + vradius 
+            vproy = float(nose.y - vcenter)
+            # calculate ratio between proyection and radius
+            vratio = vproy / vradius
+            if vratio > 1:
+                vratio = 1
+            elif vratio < -1:
+                vratio = -1
+            # calculate estimated angle (in radians)
+            v_angle = np.arcsin([vratio])[0]
+            # convert to degrees
+            v_angle = int(v_angle * 180 / np.pi)
+            # scale angle to amplify effect. This is due to the small range of movement in V axis
+            v_angle = v_angle * 3
+            if (v_angle > 90):
+                v_angle = 90
+            if (v_angle < -90):
+                v_angle = -90
+            logging.debug("v ratio: " + str(vratio) + " v proyection: " + str(vproy))
 
         return h_angle, v_angle
 
-
-    
     def loopAimingFace(self, test):
         """
         Runs the main video processing loop for aiming based on face landmarks
@@ -204,7 +234,8 @@ class poserecognition(object):
         self.m_detector = vision.FaceLandmarker.create_from_options(options)
 
         # instantiate graphic helper to record angle values
-        self.graphicHelper = GraphicsHelper(0, 20, -100, 100)
+        self.hgraphicHelper = GraphicsHelper(0, 20, -100, 100)
+        self.vgraphicHelper = GraphicsHelper(0, 20, -100, 100)
 
         try:
             # Create a video looper, that uses the aiming function as the frame processing function
@@ -243,9 +274,12 @@ class poserecognition(object):
         h_angle, v_angle = self.__deductAngle(results)
 
         # record new angle on graphic helper
-        self.graphicHelper.add_y_and_shift(h_angle)
-        self.graphicHelper.set_text(f"angle: {h_angle}")
-        self.graphicHelper.update()
+        self.hgraphicHelper.add_y_and_shift(h_angle)
+        self.hgraphicHelper.set_text(f"H angle: {h_angle}")
+        self.hgraphicHelper.update()
+        self.vgraphicHelper.add_y_and_shift(v_angle)
+        self.vgraphicHelper.set_text(f"V angle: {v_angle}")
+        self.vgraphicHelper.update()
 
         # print angle on frame
         cv2.putText(frame, text=str(h_angle), org=(20, 80), fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=3,
@@ -305,7 +339,8 @@ class poserecognition(object):
         self.initBodyPose()
 
         # instantiate graphic helper to record angle values
-        self.graphicHelper = GraphicsHelper(0, 20, -100, 100)
+        self.hgraphicHelper = GraphicsHelper(0, 20, -100, 100)
+        self.vgraphicHelper = GraphicsHelper(0, 20, -100, 100)
 
         try:
             # Create a video looper, that uses the aiming function as the frame processing function

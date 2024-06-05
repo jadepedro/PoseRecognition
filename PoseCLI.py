@@ -16,7 +16,7 @@ def main():
 
     mode, test = buildArgParser()
     logging.info("Starting pose recognition CLI on mode " + str(mode) + " test " + str(test))
-    test = True
+    #test = True
 
     # Start loop
     if mode == 'p':
